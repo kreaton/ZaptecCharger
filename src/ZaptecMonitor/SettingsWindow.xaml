@@ -1,0 +1,161 @@
+<Window x:Class="ZaptecMonitor.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Settings" Width="440" Height="530"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize" ShowInTaskbar="False"
+        Background="{StaticResource WindowBackground}">
+    <Window.Resources>
+        <Style x:Key="Label" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Margin" Value="0,10,0,4" />
+        </Style>
+        <Style x:Key="Hint" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="{StaticResource MutedText}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,4,0,0" />
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="Padding" Value="4,3" />
+        </Style>
+        <Style TargetType="PasswordBox">
+            <Setter Property="Padding" Value="4,3" />
+        </Style>
+    </Window.Resources>
+
+    <DockPanel Margin="16">
+        <!-- Buttons -->
+        <DockPanel DockPanel.Dock="Bottom" Margin="0,12,0,0" LastChildFill="False">
+            <TextBlock x:Name="ValidationText" DockPanel.Dock="Left" VerticalAlignment="Center"
+                       Foreground="{StaticResource ErrorText}" FontSize="11" TextWrapping="Wrap" MaxWidth="220" />
+            <Button DockPanel.Dock="Right" Content="Cancel" Width="84" Height="30" IsCancel="True" />
+            <Button DockPanel.Dock="Right" Content="Save" Width="84" Height="30" Margin="0,0,8,0"
+                    IsDefault="True" Click="Save_Click" Style="{StaticResource AccentButton}" />
+        </DockPanel>
+
+        <TabControl x:Name="Tabs" Padding="14,6,14,14">
+            <!-- Account -->
+            <TabItem Header="Account">
+                <StackPanel>
+                    <TextBlock Text="Zaptec portal e-mail" Style="{StaticResource Label}" />
+                    <TextBox x:Name="UsernameBox" />
+
+                    <TextBlock Text="Password" Style="{StaticResource Label}" />
+                    <PasswordBox x:Name="PasswordBox" />
+
+                    <TextBlock Text="Charger" Style="{StaticResource Label}" />
+                    <DockPanel>
+                        <Button x:Name="FindChargersButton" DockPanel.Dock="Right" Content="Find chargers"
+                                Width="100" Margin="8,0,0,0" Click="FindChargers_Click" />
+                        <ComboBox x:Name="ChargerCombo" DisplayMemberPath="Display" SelectedValuePath="Id" />
+                    </DockPanel>
+                    <TextBlock x:Name="ChargerHint" Style="{StaticResource Hint}"
+                               Text="Press “Find chargers” to list the chargers on your account." />
+
+                    <TextBlock Style="{StaticResource Hint}" Margin="0,16,0,0">
+                        The password is stored encrypted for your Windows user (DPAPI) in
+                        <Run x:Name="SettingsPathRun" FontStyle="Italic" />.
+                    </TextBlock>
+                </StackPanel>
+            </TabItem>
+
+            <!-- Polling -->
+            <TabItem Header="Refresh">
+                <StackPanel>
+                    <CheckBox x:Name="PollingCheck" Content="Refresh automatically" Margin="0,12,0,0"
+                              Checked="PollingCheck_Changed" Unchecked="PollingCheck_Changed" />
+
+                    <TextBlock Text="Refresh every (minutes)" Style="{StaticResource Label}" />
+                    <TextBox x:Name="PollIntervalBox" Width="80" HorizontalAlignment="Left" />
+                    <TextBlock Style="{StaticResource Hint}"
+                               Text="Default 15, minimum 1. Zaptec has no push updates without a Service Bus subscription, so the app polls. You can always refresh by hand with the ⟳ button or F5." />
+                    <TextBlock Style="{StaticResource Hint}" Margin="0,8,0,0"
+                               Text="The schedule doesn't wait for a refresh: the app checks the charger right at the start and pause times." />
+                </StackPanel>
+            </TabItem>
+
+            <!-- Schedule -->
+            <TabItem Header="Schedule">
+                <StackPanel>
+                    <CheckBox x:Name="ScheduleCheck" Content="Use a charging schedule" Margin="0,12,0,0"
+                              Checked="ScheduleCheck_Changed" Unchecked="ScheduleCheck_Changed" />
+
+                    <StackPanel x:Name="ScheduleFields">
+                        <Grid Margin="0,4,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="24" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="From (start)" Style="{StaticResource Label}" />
+                                <TextBox x:Name="FromBox" Width="80" TextChanged="ScheduleTime_Changed" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="To (pause)" Style="{StaticResource Label}" />
+                                <TextBox x:Name="ToBox" Width="80" TextChanged="ScheduleTime_Changed" />
+                            </StackPanel>
+                        </Grid>
+
+                        <CheckBox x:Name="StartAtFromCheck" Content="Start charging at From" Margin="0,12,0,0"
+                                  Checked="ScheduleCheck_Changed" Unchecked="ScheduleCheck_Changed" />
+                        <CheckBox x:Name="PauseAtToCheck" Margin="0,6,0,0"
+                                  Content="Pause charging at To (and keep it paused until From)"
+                                  Checked="ScheduleCheck_Changed" Unchecked="ScheduleCheck_Changed" />
+                    </StackPanel>
+
+                    <TextBlock x:Name="SchedulePreview" Style="{StaticResource Hint}" FontSize="12"
+                               Foreground="Black" Margin="0,10,0,0" />
+                    <TextBlock Style="{StaticResource Hint}" Margin="0,10,0,0">
+                        Only acts while a car is connected. Times are 24-hour (HH:mm); 23:00–06:00 runs past
+                        midnight. Pressing Start or Pause yourself overrides the schedule until the next start or
+                        pause time.
+                    </TextBlock>
+                    <TextBlock Style="{StaticResource Hint}" Margin="0,8,0,0">
+                        Zaptec's API can't store a schedule on the charger, so the app has to be running. Zaptec
+                        can only resume a session that the app (or the API) paused.
+                    </TextBlock>
+                </StackPanel>
+            </TabItem>
+
+            <!-- About / credits -->
+            <TabItem Header="About">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <Image Source="pack://application:,,,/app.ico" Width="56" Height="56"
+                               HorizontalAlignment="Left" Margin="0,12,0,6"
+                               RenderOptions.BitmapScalingMode="HighQuality" />
+                        <TextBlock Text="Zaptec Monitor" FontSize="18" FontWeight="SemiBold" />
+                        <TextBlock x:Name="VersionText" Style="{StaticResource Hint}" Margin="0,0,0,8" />
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                            <Button x:Name="UpdateButton" Content="Check for updates" Padding="10,3"
+                                    Click="CheckForUpdates_Click" />
+                            <TextBlock x:Name="UpdateStatus" Style="{StaticResource Hint}" Margin="10,0,0,0"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+
+                        <TextBlock Text="CREDITS" Style="{StaticResource Caption}" Margin="0,8,0,4" />
+                        <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="18">
+                            <Run FontWeight="SemiBold">Idea &amp; ownership</Run> — Per Hejndorf<LineBreak />
+                            <Run FontWeight="SemiBold">Code</Run> — written with Claude (Anthropic) in Claude Code<LineBreak />
+                            <Run FontWeight="SemiBold">Charger API</Run> — Zaptec Cloud API<LineBreak />
+                            <Run FontWeight="SemiBold">Built on</Run> — .NET 10 and WPF<LineBreak />
+                            <Run FontWeight="SemiBold">Icons</Run> — Segoe Fluent Icons (Windows)
+                        </TextBlock>
+
+                        <TextBlock Text="LINKS" Style="{StaticResource Caption}" Margin="0,14,0,4" />
+                        <TextBlock FontSize="12" LineHeight="18">
+                            <Hyperlink NavigateUri="https://github.com/kreaton/ZaptecCharger" RequestNavigate="Link_RequestNavigate">Project on GitHub</Hyperlink><LineBreak />
+                            <Hyperlink NavigateUri="https://docs.zaptec.com" RequestNavigate="Link_RequestNavigate">Zaptec API documentation</Hyperlink><LineBreak />
+                            <Hyperlink NavigateUri="https://portal.zaptec.com" RequestNavigate="Link_RequestNavigate">Zaptec portal</Hyperlink>
+                        </TextBlock>
+
+                        <TextBlock Style="{StaticResource Hint}" Margin="0,14,0,0">
+                            Not affiliated with or endorsed by Zaptec. Use at your own risk.
+                        </TextBlock>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+</Window>

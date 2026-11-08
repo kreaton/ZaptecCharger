@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/Zaptec.Api/Zaptec.Api.csproj" />
+  <Project Path="src/ZaptecMonitor/ZaptecMonitor.csproj" />
+</Solution>
