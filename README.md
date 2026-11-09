@@ -62,17 +62,37 @@ The app checks the charger every **15 minutes** by default. You can change that 
 
 A car plugged in outside the schedule window may charge until the next refresh pauses it. Lower the refresh interval if that matters to you.
 
+## Charge history
+
+Press the **history** button (🕘) next to refresh, or **Ctrl+H**, to open a table of how much energy was charged in each hour. Only hours with charging are listed.
+
+- Pick a **From** and **To** date and press **Show**, or use **Last 7 days**, **Last 30 days**, **This month** or **Last month**.
+- The bottom of the window shows the total kWh and how many hours and days had charging.
+- Select rows and press **Ctrl+C** to paste them into Excel, or use **Export CSV…** to save the whole table.
+- Times are your PC's local time. If Zaptec has no hourly readings for a session, its energy is spread evenly over the session and marked **≈**.
+
+Zaptec keeps closed sessions for two years, so older history isn't available.
+
+### What it cost
+
+Pick your grid company and electricity company on the **Price** tab in Settings. The history window then also shows the price per kWh and the cost of each hour, with the total cost and the average price at the bottom. If you already use StromForbrug or StromPriser, the tab starts with the choices you made there. Press **Save** to keep them.
+
+- Prices come from [stromligning.dk](https://stromligning.dk): spot price, your electricity company's surcharge, grid tariffs and electricity tax, for that exact hour. Choose whether they include VAT.
+- The cost is an estimate. Subscriptions, refunds of electricity tax and special EV tariffs aren't included, and the charger's own losses aren't counted.
+- If stromligning.dk can't be reached, the table still shows kWh and the bottom line says why the prices are missing.
+
 ## Shortcuts
 
 | Action | Shortcut |
 | --- | --- |
 | Refresh now | F5 |
+| Charge history | Ctrl+H |
 | Open settings | Ctrl+, |
 
 ## Good to know
 
 - Your settings are stored in `%LocalAppData%\ZaptecMonitor\settings.json`. The password is encrypted for your Windows user, so other users of the PC can't read it.
-- The app talks only to Zaptec's servers (`api.zaptec.com`), using your own login.
+- The app talks to Zaptec's servers (`api.zaptec.com`) using your own login, and to `stromligning.dk` for electricity prices. Nothing about you is sent to stromligning.dk, only your grid company, product and the period.
 - The version, build time and commit are on the **About** tab in Settings.
 - This app is not made by or affiliated with Zaptec. Use it at your own risk.
 
@@ -85,7 +105,8 @@ The app is built with WPF on .NET 10. It's split in two projects:
 | Project | What it is |
 | --- | --- |
 | `src/Zaptec.Api` | A `net10.0` class library for the Zaptec Cloud API. It handles login, the charger list, charger state, and the pause and resume commands. It has no UI code. |
-| `src/ZaptecMonitor` | The WPF app: main window, settings window and the schedule logic (`ChargeSchedule.cs`). |
+| `src/Stromligning` | Client and models for the public [stromligning.dk API](https://stromligning.dk/api), copied from the StromPriser/StromForbrug repositories. |
+| `src/ZaptecMonitor` | The WPF app: main window, settings window, charge history, the schedule logic (`ChargeSchedule.cs`) and the hourly price lookup (`ElectricityPrices.cs`). |
 
 Installs and updates use [Velopack](https://velopack.io).
 
@@ -103,6 +124,9 @@ dotnet run --project src/ZaptecMonitor
 - **Pause** is command 506 and is only accepted while charging. **Resume** is command 507 and is only accepted when the session is paused or held by a Zaptec schedule.
 - Zaptec can push updates through an Azure Service Bus subscription, but Zaptec support has to enable it for each account, so the app polls instead.
 - Zaptec's public API has no way to read or set the charger's own schedule, or to do what **Charge now** in the Zaptec app does.
+- Charge history comes from `GET /api/sessions/archived`, which replaces `/api/chargehistory` (that one is switched off on 2027-01-01). Results are cursor-paged, and the app asks for one month at a time. Timestamps are UTC.
+- Zaptec documents each session's `energyDetails` readings as cumulative, but real data is per interval: each reading is the energy since the previous one, taken on whole hours. `ChargeHistory.ToHourly` in `Zaptec.Api` handles both formats. Readings more than an hour apart mean the car was idle in between, so the energy goes into the last hour before the reading.
+- Prices come from `GET https://stromligning.dk/api/prices` with `aggregation=1h`, one month per request, at least two years back. Each hour's cost is that hour's kWh times that hour's price.
 
 ### Releases
 

@@ -71,6 +71,56 @@ public sealed class ZaptecClient : IDisposable
         };
     }
 
+    /// <summary>
+    /// Completed charge sessions for one charger whose end time is in [from, to), oldest first.
+    /// Uses GET /api/sessions/archived (cursor-paged, max 200 per page), which replaces the
+    /// deprecated /api/chargehistory. Requires owner role on the charger.
+    /// </summary>
+    public async Task<IReadOnlyList<ChargeSession>> GetSessionsAsync(
+        string chargerId, DateTimeOffset from, DateTimeOffset to, CancellationToken ct = default)
+    {
+        var result = new List<ChargeSession>();
+        string? cursor = null;
+        for (var page = 0; page < 100; page++) // safety stop: 20 000 sessions
+        {
+            var url = $"/api/sessions/archived?ChargerId={chargerId}" +
+                      $"&From={Uri.EscapeDataString(from.UtcDateTime.ToString("o"))}" +
+                      $"&To={Uri.EscapeDataString(to.UtcDateTime.ToString("o"))}" +
+                      "&PageSize=200" +
+                      (cursor is null ? "" : "&Cursor=" + Uri.EscapeDataString(cursor));
+
+            using var resp = await SendAsync(HttpMethod.Get, url, ct);
+            var body = await resp.Content.ReadFromJsonAsync<ArchivedSessionsResponse>(Json, ct);
+
+            foreach (var s in body?.Sessions ?? [])
+            {
+                if (s.Voided || Time(s.StartDateTime) is not { } start) continue;
+                result.Add(new ChargeSession
+                {
+                    Id = s.Id,
+                    Start = start,
+                    End = Time(s.EndDateTime),
+                    EnergyKwh = s.Energy,
+                    Readings = (s.EnergyDetails ?? [])
+                        .Select(p => (Time(p.Timestamp), p.Energy))
+                        .Where(p => p.Item1 is not null)
+                        .Select(p => new EnergyReading(p.Item1!.Value, p.Energy))
+                        .OrderBy(p => p.Timestamp)
+                        .ToList(),
+                });
+            }
+
+            if (body is null || !body.HasMore || string.IsNullOrEmpty(body.Cursor)) break;
+            cursor = body.Cursor;
+        }
+        return result;
+    }
+
+    /// <summary>Zaptec timestamps usually carry no offset; they are UTC.</summary>
+    private static DateTimeOffset? Time(string? s) =>
+        DateTimeOffset.TryParse(s, CultureInfo.InvariantCulture,
+            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var t) ? t : null;
+
     /// <summary>Pause charging (command 506). Only valid while charging.</summary>
     public Task StopChargingAsync(string chargerId, CancellationToken ct = default) =>
         SendCommandAsync(chargerId, CmdStopChargingFinal, ct);
@@ -219,6 +269,29 @@ public sealed class ZaptecClient : IDisposable
     private sealed class ChargerPage
     {
         public List<ZaptecCharger> Data { get; set; } = [];
+    }
+
+    private sealed class ArchivedSessionsResponse
+    {
+        public List<ArchivedSession>? Sessions { get; set; }
+        public string? Cursor { get; set; }
+        public bool HasMore { get; set; }
+    }
+
+    private sealed class ArchivedSession
+    {
+        public string Id { get; set; } = "";
+        public string? StartDateTime { get; set; }
+        public string? EndDateTime { get; set; }
+        public double Energy { get; set; }
+        public bool Voided { get; set; }
+        public List<ArchivedEnergyPoint>? EnergyDetails { get; set; }
+    }
+
+    private sealed class ArchivedEnergyPoint
+    {
+        public string? Timestamp { get; set; }
+        public double Energy { get; set; }
     }
 
     private sealed class Observation

@@ -25,6 +25,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Zaptec.Api\Zaptec.Api.csproj" />
+    <ProjectReference Include="..\Stromligning\Stromligning.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -41,11 +41,60 @@ public sealed class ScheduleSettings
     public bool PauseAtTo { get; set; } = true;
 }
 
+/// <summary>
+/// Where the electricity prices for the history's cost estimate come from (stromligning.dk).
+/// The grid company decides tariffs and price area, the trading company's product the surcharge.
+/// </summary>
+public sealed class PriceSettings
+{
+    /// <summary>Grid company (netselskab) id at stromligning.dk. Empty: no prices, kWh only.</summary>
+    public string SupplierId { get; set; } = "";
+    public string CustomerGroupId { get; set; } = "";
+
+    /// <summary>Trading company (elhandelsselskab). It has no id in the API, so it's kept by name.</summary>
+    public string CompanyName { get; set; } = "";
+    public string ProductId { get; set; } = "";
+
+    public bool IncludeVat { get; set; } = true;
+
+    [JsonIgnore]
+    public bool IsConfigured => !string.IsNullOrWhiteSpace(SupplierId);
+
+    /// <summary>
+    /// The same choices made in the StromForbrug or StromPriser apps (%APPDATA%\…\settings.json),
+    /// so the user doesn't have to pick them again. Null if neither app has been set up.
+    /// </summary>
+    public static PriceSettings? FromSiblingApps()
+    {
+        foreach (var app in new[] { "StromForbrug", "StromPriser" })
+        {
+            try
+            {
+                var path = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), app, "settings.json");
+                if (!File.Exists(path)) continue;
+
+                var p = JsonSerializer.Deserialize<PriceSettings>(File.ReadAllText(path), AppSettings.ReadOptions);
+                if (p is null || !p.IsConfigured) continue;
+                p.CustomerGroupId ??= "";
+                p.CompanyName ??= "";
+                p.ProductId ??= "";
+                return p;
+            }
+            catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
+            {
+                // Unreadable: try the next app, or start blank.
+            }
+        }
+        return null;
+    }
+}
+
 public sealed class AppSettings
 {
     public const int MinPollMinutes = 1;
 
-    private static readonly JsonSerializerOptions ReadOptions = new()
+    internal static readonly JsonSerializerOptions ReadOptions = new()
     {
         PropertyNameCaseInsensitive = true,
         ReadCommentHandling = JsonCommentHandling.Skip,
@@ -56,6 +105,9 @@ public sealed class AppSettings
 
     public ZaptecSettings Zaptec { get; set; } = new();
     public ScheduleSettings Schedule { get; set; } = new();
+
+    /// <summary>Null in files written before prices existed; Load fills it in.</summary>
+    public PriceSettings? Price { get; set; }
 
     /// <summary>Per-user settings written by the settings screen. Takes precedence over appsettings.json.</summary>
     public static string UserSettingsPath { get; } = Path.Combine(
@@ -80,6 +132,8 @@ public sealed class AppSettings
 
         s.Zaptec ??= new();
         s.Schedule ??= new();
+        // Never set up here: borrow the choices from StromForbrug/StromPriser until the user saves.
+        s.Price ??= PriceSettings.FromSiblingApps() ?? new();
         s.LoadedFrom = path;
 
         if (!string.IsNullOrEmpty(s.Zaptec.ProtectedPassword))

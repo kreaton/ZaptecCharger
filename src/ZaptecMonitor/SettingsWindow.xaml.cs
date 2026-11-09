@@ -1,5 +1,8 @@
 using System.Diagnostics;
+using System.Globalization;
+using System.IO;
 using System.Windows;
+using Stromligning;
 using System.Windows.Controls;
 using System.Windows.Navigation;
 using Velopack;
@@ -40,6 +43,10 @@ public partial class SettingsWindow : Window
         PauseAtToCheck.IsChecked = Result.Schedule.PauseAtTo;
         FromBox.Text = Result.Schedule.From;
         ToBox.Text = Result.Schedule.To;
+
+        Result.Price ??= new();
+        IncludeVatCheck.IsChecked = Result.Price.IncludeVat;
+        Loaded += async (_, _) => await LoadPriceListsAsync();
 
         VersionText.Text = $"{BuildInfo.Display}  ·  {BuildInfo.Copyright}";
 
@@ -191,6 +198,18 @@ public partial class SettingsWindow : Window
         Result.Schedule.From = from.ToString("HH:mm");
         Result.Schedule.To = to.ToString("HH:mm");
 
+        var price = Result.Price ??= new();
+        price.IncludeVat = IncludeVatCheck.IsChecked == true;
+        if (_priceListsLoaded) // otherwise keep the previous choices rather than wiping them
+        {
+            var supplier = SupplierCombo.SelectedItem as Supplier;
+            var hasSupplier = supplier is not null && supplier != NoSupplier;
+            price.SupplierId = hasSupplier ? supplier!.Id : "";
+            price.CustomerGroupId = hasSupplier ? (CustomerGroupCombo.SelectedItem as CustomerGroup)?.Id ?? "" : "";
+            price.CompanyName = hasSupplier && CompanyCombo.SelectedItem is Company c && c != NoCompany ? c.Name : "";
+            price.ProductId = price.CompanyName.Length > 0 ? (ProductCombo.SelectedItem as Product)?.Id ?? "" : "";
+        }
+
         try
         {
             Result.Save();
@@ -202,6 +221,102 @@ public partial class SettingsWindow : Window
         }
 
         DialogResult = true;
+    }
+
+    // ---------- Electricity price (stromligning.dk) ----------
+
+    private static readonly Supplier NoSupplier = new() { Name = "(none – show kWh only)" };
+    private static readonly Company NoCompany = new() { Name = "(none – spot price without surcharge)" };
+    private bool _priceListsLoaded;
+
+    private async Task LoadPriceListsAsync()
+    {
+        var p = Result.Price!;
+        PriceStatus.Text = "Loading grid and electricity companies…";
+        SupplierCombo.IsEnabled = CompanyCombo.IsEnabled = false;
+        try
+        {
+            using var client = new StromligningClient(userAgent: ElectricityPrices.UserAgent);
+            var suppliersTask = client.GetSuppliersAsync(CancellationToken.None);
+            var companiesTask = client.GetCompaniesAsync(CancellationToken.None);
+            await Task.WhenAll(suppliersTask, companiesTask);
+
+            var cmp = StringComparer.Create(CultureInfo.GetCultureInfo("da-DK"), ignoreCase: true);
+            SupplierCombo.Items.Add(NoSupplier);
+            foreach (var s in suppliersTask.Result.OrderBy(s => s.Name, cmp))
+                SupplierCombo.Items.Add(s);
+            CompanyCombo.Items.Add(NoCompany);
+            foreach (var c in companiesTask.Result.Where(c => c.SpotProducts.Any()).OrderBy(c => c.Name, cmp))
+                CompanyCombo.Items.Add(c);
+
+            SupplierCombo.SelectedItem = SupplierCombo.Items.OfType<Supplier>().FirstOrDefault(s => s.Id == p.SupplierId) ?? NoSupplier;
+            if (CustomerGroupCombo.Items.OfType<CustomerGroup>().FirstOrDefault(g => g.Id == p.CustomerGroupId) is { } group)
+                CustomerGroupCombo.SelectedItem = group;
+            CompanyCombo.SelectedItem = CompanyCombo.Items.OfType<Company>().FirstOrDefault(c => c.Name == p.CompanyName) ?? NoCompany;
+            if (ProductCombo.Items.OfType<Product>().FirstOrDefault(x => x.Id == p.ProductId) is { } product)
+                ProductCombo.SelectedItem = product;
+
+            _priceListsLoaded = true;
+            PriceStatus.Text = p.IsConfigured && !HasSavedPrice()
+                ? "Filled in from your StromForbrug/StromPriser settings. Press Save to keep it."
+                : "";
+        }
+        catch (Exception ex)
+        {
+            PriceStatus.Text = "Could not load the lists from stromligning.dk: " + ex.Message;
+        }
+        finally
+        {
+            SupplierCombo.IsEnabled = true;
+            UpdatePriceEnabledStates();
+        }
+    }
+
+    /// <summary>True when the user's settings file already holds price choices (not borrowed from another app).</summary>
+    private static bool HasSavedPrice()
+    {
+        try
+        {
+            return File.Exists(AppSettings.UserSettingsPath) &&
+                   File.ReadAllText(AppSettings.UserSettingsPath).Contains("\"Price\"", StringComparison.Ordinal);
+        }
+        catch (IOException) { return false; }
+    }
+
+    private void SupplierCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        CustomerGroupCombo.Items.Clear();
+        if (SupplierCombo.SelectedItem is Supplier s && s != NoSupplier)
+        {
+            foreach (var g in s.CustomerGroups)
+                CustomerGroupCombo.Items.Add(g);
+            if (CustomerGroupCombo.Items.Count > 0)
+            {
+                var i = s.CustomerGroups.FindIndex(g => g.Default);
+                CustomerGroupCombo.SelectedIndex = i >= 0 ? i : 0;
+            }
+        }
+        UpdatePriceEnabledStates();
+    }
+
+    private void CompanyCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        ProductCombo.Items.Clear();
+        if (CompanyCombo.SelectedItem is Company c && c != NoCompany)
+        {
+            foreach (var product in c.SpotProducts)
+                ProductCombo.Items.Add(product);
+            if (ProductCombo.Items.Count > 0)
+                ProductCombo.SelectedIndex = 0;
+        }
+        UpdatePriceEnabledStates();
+    }
+
+    private void UpdatePriceEnabledStates()
+    {
+        var hasSupplier = SupplierCombo.SelectedItem is Supplier s && s != NoSupplier;
+        CustomerGroupCombo.IsEnabled = CompanyCombo.IsEnabled = IncludeVatCheck.IsEnabled = hasSupplier;
+        ProductCombo.IsEnabled = hasSupplier && ProductCombo.Items.Count > 0;
     }
 
     private void Fail(int tab, string message)

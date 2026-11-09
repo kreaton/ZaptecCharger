@@ -480,12 +480,35 @@ public partial class MainWindow : Window
 
     private async void SettingsButton_Click(object sender, RoutedEventArgs e) => await OpenSettingsAsync();
 
+    private HistoryWindow? _history;
+
+    private void HistoryButton_Click(object sender, RoutedEventArgs e) => OpenHistory();
+
+    /// <summary>Opens the history window, or brings the open one to the front.</summary>
+    private void OpenHistory()
+    {
+        if (_history is { IsLoaded: true })
+        {
+            if (_history.WindowState == WindowState.Minimized) _history.WindowState = WindowState.Normal;
+            _history.Activate();
+            return;
+        }
+        _history = new HistoryWindow(() => (_client, _charger), () => _settings.Price) { Owner = this };
+        _history.Closed += (_, _) => _history = null;
+        _history.Show();
+    }
+
     private async void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.F5)
         {
             e.Handled = true;
             await RefreshAsync();
+        }
+        else if (e.Key == Key.H && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            e.Handled = true;
+            OpenHistory();
         }
         else if (e.Key == Key.OemComma && Keyboard.Modifiers == ModifierKeys.Control)
         {

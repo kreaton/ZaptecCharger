@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Client for the public stromligning.dk API (Danish electricity prices with tariffs and taxes).
+       Copied from the StromPriser / StromForbrug repositories: only the client and its models. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Stromligning</RootNamespace>
+  </PropertyGroup>
+
+</Project>

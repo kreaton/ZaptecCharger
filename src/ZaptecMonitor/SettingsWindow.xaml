@@ -1,7 +1,7 @@
 <Window x:Class="ZaptecMonitor.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Settings" Width="440" Height="530"
+        Title="Settings" Width="460" Height="560"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize" ShowInTaskbar="False"
         Background="{StaticResource WindowBackground}">
     <Window.Resources>
@@ -118,6 +118,36 @@
                 </StackPanel>
             </TabItem>
 
+            <!-- Electricity price (stromligning.dk), for the cost in the charge history -->
+            <TabItem x:Name="PriceTab" Header="Price">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource Hint}" Margin="0,10,0,0" FontSize="12" Foreground="Black"
+                               Text="Used to estimate what past charging cost, in the charge history." />
+
+                    <TextBlock Text="Grid company (netselskab)" Style="{StaticResource Label}" />
+                    <ComboBox x:Name="SupplierCombo" SelectionChanged="SupplierCombo_SelectionChanged" />
+
+                    <TextBlock Text="Customer group" Style="{StaticResource Label}" />
+                    <ComboBox x:Name="CustomerGroupCombo" />
+
+                    <TextBlock Text="Electricity company (elhandelsselskab)" Style="{StaticResource Label}" />
+                    <ComboBox x:Name="CompanyCombo" SelectionChanged="CompanyCombo_SelectionChanged" />
+
+                    <TextBlock Text="Product" Style="{StaticResource Label}" />
+                    <ComboBox x:Name="ProductCombo" />
+
+                    <CheckBox x:Name="IncludeVatCheck" Content="Prices incl. VAT (moms)" Margin="0,12,0,0" />
+
+                    <TextBlock x:Name="PriceStatus" Style="{StaticResource Hint}" Margin="0,10,0,0" />
+                    <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0">
+                        Prices come from
+                        <Hyperlink NavigateUri="https://stromligning.dk" RequestNavigate="Link_RequestNavigate">stromligning.dk</Hyperlink>:
+                        spot price, the company's surcharge, grid tariffs and electricity tax, hour by hour.
+                        Subscriptions and refunds of electricity tax aren't included.
+                    </TextBlock>
+                </StackPanel>
+            </TabItem>
+
             <!-- About / credits -->
             <TabItem Header="About">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -139,6 +169,7 @@
                             <Run FontWeight="SemiBold">Idea &amp; ownership</Run> — Per Hejndorf<LineBreak />
                             <Run FontWeight="SemiBold">Code</Run> — written with Claude (Anthropic) in Claude Code<LineBreak />
                             <Run FontWeight="SemiBold">Charger API</Run> — Zaptec Cloud API<LineBreak />
+                            <Run FontWeight="SemiBold">Electricity prices</Run> — stromligning.dk<LineBreak />
                             <Run FontWeight="SemiBold">Built on</Run> — .NET 10 and WPF<LineBreak />
                             <Run FontWeight="SemiBold">Icons</Run> — Segoe Fluent Icons (Windows)
                         </TextBlock>
