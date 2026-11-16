@@ -3,7 +3,7 @@
 # Zaptec Monitor
 
 [![Release](https://img.shields.io/github/v/release/kreaton/ZaptecCharger)](https://github.com/kreaton/ZaptecCharger/releases/latest)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE.txt)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 ![Windows](https://img.shields.io/badge/platform-Windows-lightgrey)
 ![.NET 10](https://img.shields.io/badge/.NET-10-lightgrey)
 ![WPF](https://img.shields.io/badge/UI-WPF-lightgrey)
@@ -145,3 +145,9 @@ Versions look like **1.1.42**, and the full build reads like `v1.1.42 · 2026-11
 ## Credits
 
 See [CREDITS.md](CREDITS.md).
+
+## License & Authorship
+
+This project is distributed under the terms of the [MIT License](LICENSE).
+
+**AI authorship note:** Most of the source code in this repository was generated with AI coding agents (Claude Code), under my direction and review. Purely AI-generated material may not be eligible for copyright protection in some jurisdictions. To the extent any part of this project is protected by copyright, it is licensed under the MIT License, and the license's warranty and liability disclaimers apply to the project as a whole.
